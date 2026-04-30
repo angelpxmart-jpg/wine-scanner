@@ -124,6 +124,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .wine-item-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .wine-item-right { text-align: right; flex-shrink: 0; }
 .wine-stars { font-size: 12px; color: var(--gold-mid); }
+.wine-price { font-size: 11px; color: var(--gold); font-weight: 600; margin-top: 2px; }
 .wine-rebuy { font-size: 9px; margin-top: 3px; }
 
 .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
@@ -176,6 +177,17 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .slider-val { font-size: 12px; color: var(--gold); font-weight: 600; }
 input[type=range] { width: 100%; -webkit-appearance: none; appearance: none; height: 5px; border-radius: 3px; background: #E8D8B0; outline: none; }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--gold-mid); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(154,112,32,0.4); cursor: pointer; }
+
+/* Price section */
+.price-section { margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--gold-border); }
+.price-label { font-size: 11px; color: var(--text2); font-weight: 500; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.price-label .price-hint-inline { font-size: 10px; color: var(--muted); font-weight: 400; }
+.price-input-wrap { position: relative; }
+.price-input-wrap .price-prefix { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 14px; color: var(--gold); font-weight: 600; pointer-events: none; }
+#priceInput { width: 100%; padding: 12px 14px 12px 28px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface); font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); outline: none; transition: border-color 0.2s; -moz-appearance: textfield; }
+#priceInput::-webkit-outer-spin-button, #priceInput::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+#priceInput:focus { border-color: var(--gold-mid); }
+#priceInput::placeholder { color: var(--muted2); }
 
 .rebuy-section { margin-top: 16px; }
 .rebuy-label { font-size: 11px; color: var(--text2); font-weight: 500; margin-bottom: 8px; }
@@ -345,6 +357,19 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px;
         <div class="slider-header"><span class="slider-name">餘韻</span><span class="slider-val" id="val-finish">5</span></div>
         <input type="range" min="1" max="10" value="5" id="slider-finish" oninput="document.getElementById('val-finish').textContent=this.value">
       </div>
+
+      <!-- 🆕 金額輸入區（階段 3 新增） -->
+      <div class="price-section">
+        <div class="price-label">
+          購買金額
+          <span class="price-hint-inline">（選填）</span>
+        </div>
+        <div class="price-input-wrap">
+          <span class="price-prefix">$</span>
+          <input type="number" id="priceInput" placeholder="0" min="0" step="1" inputmode="numeric" />
+        </div>
+      </div>
+
       <div class="rebuy-section">
         <div class="rebuy-label">下次還要買嗎？</div>
         <div class="rebuy-btns">
@@ -394,7 +419,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px;
 const CONFIG = {
   CLIENT_ID: '206146315898-34ng09kgbtnbf4e08cfpj4uaaijrfh6v.apps.googleusercontent.com',
   SPREADSHEET_ID: '1xCb1j5pQuyZ6z6TAnlfPnYRTGHifyH3DHSsER_YPd2k',
-  ANTHROPIC_API_KEY: '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',
+  // ⚠️ 安全：API key 已移除，由後端 api/scan.js 從 Vercel 環境變數讀取
   SCOPES: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.profile',
   REDIRECT_URI: 'https://wine-scanner-phi.vercel.app/',
 };
@@ -469,6 +494,7 @@ function initApp() {
     const av = document.getElementById('user-avatar');
     av.innerHTML = `<img src="${state.userInfo.picture}" alt="avatar">`;
   }
+  ensureSheetHeaders();
   loadRecordsFromSheets();
 }
 
@@ -518,11 +544,10 @@ function clearImage() {
 }
 
 // ═══════════════════════════════════════════
-// SCAN — ANTHROPIC API
+// SCAN — ANTHROPIC API（透過後端 /api/scan）
 // ═══════════════════════════════════════════
 async function startScan() {
   if (!state.currentImageBase64) { showToast('請先上傳酒標照片', 'error'); return; }
-  if (!CONFIG.ANTHROPIC_API_KEY) { showToast('請在 CONFIG 填入 Anthropic API Key', 'error'); return; }
 
   showLoading('AI 正在辨識酒標...');
   try {
@@ -629,6 +654,9 @@ function resetScoring() {
     document.getElementById(`slider-${k}`).value = 5;
     document.getElementById(`val-${k}`).textContent = '5';
   });
+  // 🆕 重置金額輸入框
+  const priceEl = document.getElementById('priceInput');
+  if (priceEl) priceEl.value = '';
   document.getElementById('btn-yes').className = 'rebuy-btn';
   document.getElementById('btn-no').className = 'rebuy-btn';
 }
@@ -659,7 +687,19 @@ function switchTab(name) {
 }
 
 // ═══════════════════════════════════════════
-// SAVE TO GOOGLE SHEETS
+// 🆕 PRICE FORMAT HELPER（階段 3 新增）
+// ═══════════════════════════════════════════
+function formatPrice(value) {
+  // 空值或無效數字 → 顯示「—」
+  if (value === '' || value === null || value === undefined) return '—';
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return '—';
+  // 千分位 + $ 前綴
+  return '$' + n.toLocaleString('en-US');
+}
+
+// ═══════════════════════════════════════════
+// SAVE TO GOOGLE SHEETS（階段 4 會更新）
 // ═══════════════════════════════════════════
 async function saveToSheets() {
   if (!state.currentWine) { showToast('沒有辨識結果', 'error'); return; }
@@ -670,6 +710,11 @@ async function saveToSheets() {
   const now = new Date().toLocaleDateString('zh-TW');
   const stars = state.starRating ? '★'.repeat(state.starRating) + '☆'.repeat(5-state.starRating) : '—';
   const rebuyText = state.rebuy === true ? '會再買' : state.rebuy === false ? '不再買' : '—';
+
+  // 🆕 金額：從輸入框讀取，做基本驗證；空值或非正整數 → 寫空字串
+  const priceRaw = document.getElementById('priceInput').value.trim();
+  const priceNum = Number(priceRaw);
+  const priceCell = (priceRaw && Number.isFinite(priceNum) && priceNum > 0) ? priceNum : '';
 
   const row = [
     now,
@@ -687,11 +732,12 @@ async function saveToSheets() {
     document.getElementById('slider-taste').value,
     document.getElementById('slider-finish').value,
     rebuyText,
+    priceCell, // 🆕 金額（第 16 欄 / P）
   ];
 
   try {
     const resp = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/A:O:append?valueInputOption=USER_ENTERED`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/A:P:append?valueInputOption=USER_ENTERED`,
       {
         method: 'POST',
         headers: {
@@ -707,6 +753,7 @@ async function saveToSheets() {
         aromaScore: document.getElementById('slider-aroma').value,
         tasteScore: document.getElementById('slider-taste').value,
         finishScore: document.getElementById('slider-finish').value,
+        price: priceCell, // 🆕 金額同步存進本地，方便歷史頁立刻看到
         id: Date.now() };
       state.records.unshift(record);
       localStorage.setItem('wineRecords', JSON.stringify(state.records.slice(0, 100)));
@@ -730,13 +777,13 @@ async function saveToSheets() {
 }
 
 // ═══════════════════════════════════════════
-// GOOGLE SHEETS — LOAD RECORDS
+// GOOGLE SHEETS — LOAD RECORDS（階段 5 會更新）
 // ═══════════════════════════════════════════
 async function loadRecordsFromSheets() {
   if (!state.accessToken) return;
   try {
     const resp = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/A2:O`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/A2:P`,
       { headers: { Authorization: `Bearer ${state.accessToken}` } }
     );
     const data = await resp.json();
@@ -747,6 +794,7 @@ async function loadRecordsFromSheets() {
         region: r[4], vintage: r[5], grape: r[6], aroma: r[7],
         finish: r[8], occasion: r[9], stars: (r[10]?.match(/★/g)||[]).length,
         aromaScore: r[11], tasteScore: r[12], finishScore: r[13], rebuy: r[14],
+        price: r[15] || '', // 🆕 金額（舊紀錄 r[15] 為 undefined → 空字串）
       }));
       localStorage.setItem('wineRecords', JSON.stringify(state.records.slice(0, 100)));
     }
@@ -754,26 +802,34 @@ async function loadRecordsFromSheets() {
   renderRecentList();
 }
 
+// ═══════════════════════════════════════════
+// 🆕 ensureSheetHeaders（階段 2 設計，比對後補欄位）
+// ═══════════════════════════════════════════
 async function ensureSheetHeaders() {
   if (!state.accessToken) return;
+  const EXPECTED = ['日期','酒名','類型','國家','產區','年份','葡萄品種',
+                    '香氣','餘韻','適合場合','星級','香氣分','口感分','餘韻分',
+                    '再購','金額'];
   try {
     const checkResp = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/A1`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/A1:P1`,
       { headers: { Authorization: `Bearer ${state.accessToken}` } }
     );
     const data = await checkResp.json();
-    if (data.values) return; // Headers already exist
-
-    const headers = ['日期','酒名','類型','國家','產區','年份','葡萄品種','香氣','餘韻','適合場合','星級','香氣分','口感分','餘韻分','再購'];
+    const current = data.values?.[0] || [];
+    // 表頭已完整則跳過（避免每次 init 都打一次 API）
+    if (current.length >= EXPECTED.length &&
+        EXPECTED.every((h, i) => current[i] === h)) return;
+    // 否則覆寫整列表頭（PUT 只動 A1:P1，不影響資料列）
     await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/A1:O1?valueInputOption=USER_ENTERED`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/A1:P1?valueInputOption=USER_ENTERED`,
       {
         method: 'PUT',
         headers: { Authorization: `Bearer ${state.accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values: [headers] }),
+        body: JSON.stringify({ values: [EXPECTED] }),
       }
     );
-  } catch(e) {}
+  } catch(e) { console.error('ensureSheetHeaders failed', e); }
 }
 
 // ═══════════════════════════════════════════
@@ -794,6 +850,11 @@ function wineCardHTML(r) {
   const emoji = r.type === '白酒' ? '🥂' : r.type === '氣泡酒' ? '🍾' : r.type === '粉紅酒' ? '🌸' : '🍷';
   const rebuyTag = r.rebuy === '會再買' ? `<div class="tag tag-green" style="font-size:9px">再買 ✓</div>` :
     r.rebuy === '不再買' ? `<div class="tag tag-red" style="font-size:9px">不再買 ✕</div>` : '';
+  // 🆕 金額顯示（舊紀錄空值 → 不渲染這一行；有金額 → 顯示「$1,200」）
+  const priceFormatted = formatPrice(r.price);
+  const priceLine = priceFormatted !== '—'
+    ? `<div class="wine-price">${priceFormatted}</div>`
+    : '';
   return `<div class="wine-list-item">
     <div class="wine-emoji">${emoji}</div>
     <div class="wine-item-info">
@@ -802,6 +863,7 @@ function wineCardHTML(r) {
     </div>
     <div class="wine-item-right">
       <div class="wine-stars">${stars}</div>
+      ${priceLine}
       ${rebuyTag}
     </div>
   </div>`;
