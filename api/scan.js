@@ -46,7 +46,8 @@ module.exports = (req, res) => {
       console.log('[DEBUG] ANTHROPIC_STATUS:', apiRes.statusCode);
       apiRes.on('data', chunk => { data += chunk; });
       apiRes.on('end', () => {
-        console.log('[DEBUG] RESPONSE_PREVIEW:', data.slice(0, 200));
+        // 🔍 把預覽長度從 200 拉到 1500，看完整錯誤訊息
+        console.log('[DEBUG] RESPONSE_FULL:', data.slice(0, 1500));
         try {
           res.status(apiRes.statusCode).json(JSON.parse(data));
         } catch (e) {
